@@ -1,5 +1,7 @@
 from selenium import webdriver
 import yaml
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import JavascriptException
 
 def getCurrentFruit(browser):
     with open("idToFruit.yml", "r") as f:
@@ -19,5 +21,13 @@ def getScore(browser):
 # Low X is left, high X is right.
 def getPositions(browser):
     js = 'return cc.find("Canvas/fruitNode")._children.map(child => [child._worldMatrix, child._components[3].bianjieX]);'
-    result = browser.execute_script(js)
-    print("result: ", result)
+    try:
+        result = browser.execute_script(js)
+        print("result: ", result)
+    except JavascriptException:
+        print("ERROR: ", JavascriptException)
+
+def checkGameOver(browser):
+    gameEndDisplay = browser.find_element(By.ID, "GameEndScoreScreen") # if found, array should be > 0 in size
+    displayed = gameEndDisplay.get_attribute("style")
+    return True if "display: block" in displayed else False
