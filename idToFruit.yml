@@ -1,0 +1,31 @@
+fruitToID:
+    Cherries:
+        Size: 52
+        ID: 334
+    Strawberry:
+        Size: 78
+        ID: 321
+    Grape:
+        Size: 108
+        ID: 306
+    Dekopon:
+        Size: 119
+        ID: 300.5
+    Orange:
+        Size: 153
+        ID: 283.5
+    Apple:
+        Size: 183
+        ID: 268.5
+    Pear:
+        Size: 186
+        ID: 267
+
+idToFruit:
+    334: Cherries
+    321: Strawberry
+    306: Grape
+    300.5: Dekopon
+    283.5: Orange
+    268.5: Apple
+    267: Pear
