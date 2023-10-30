@@ -1,3 +1,4 @@
+import os
 import random
 import suikasite
 import numpy as np
@@ -10,6 +11,8 @@ MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
 
+os.environ["DISPLAY"] = ":0" #set display for WSL
+
 class Agent:
 
     def __init__(self):
@@ -18,6 +21,8 @@ class Agent:
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(38, 256, 1)
+        self.loadedModel = self.loadModel()
+        self.model = self.loadedModel if not self.loadedModel == None else self.model
         self.trainer = QTrainer(self.model, learningRate=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -78,6 +83,15 @@ class Agent:
 
         return final_move
     
+    def loadModel(self, file_name="model.pth"):
+        model_folder_path = "./model"
+        if os.path.exists(model_folder_path):
+            file_name = os.path.join(model_folder_path, file_name)
+            model = self.model
+            model.load_state_dict(torch.load(file_name))
+            return model
+        return None
+
 def train():
     plot_scores = []
     plot_mean_scores = []

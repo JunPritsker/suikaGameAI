@@ -38,7 +38,7 @@ class QTrainer:
         except:
             pass
 
-        
+
         state = torch.tensor(state, dtype=torch.float) # seems to be expecting a 1d array
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.float)
