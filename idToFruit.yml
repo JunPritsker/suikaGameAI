@@ -20,6 +20,18 @@ fruitToID:
     Pear:
         Size: 186
         ID: 267
+    Peach:
+        Size: 258
+        ID: 231
+    Pineapple:
+        Size: 308
+        ID: 206
+    Melon:
+        Size: 428
+        ID: 146
+    Watermelon:
+        Size: 404
+        ID: 158
 
 idToFruit:
     334: Cherries
@@ -29,3 +41,20 @@ idToFruit:
     283.5: Orange
     268.5: Apple
     267: Pear
+    231: Peach
+    206: Pineapple
+    146: Melon
+    158: Watermelon
+
+idToOHE:
+    334: [0,0,0,0,0,0,0,0,0,0,1] #Cherry
+    321: [0,0,0,0,0,0,0,0,0,1,0] #Strawberry
+    306: [0,0,0,0,0,0,0,0,1,0,0] #Grape
+    300.5: [0,0,0,0,0,0,0,1,0,0,0] #Dekopon
+    283.5: [0,0,0,0,0,0,1,0,0,0,0] #Orange
+    268.5: [0,0,0,0,0,1,0,0,0,0,0] #Apple
+    267: [0,0,0,0,1,0,0,0,0,0,0] #Pear
+    231: [0,0,0,1,0,0,0,0,0,0,0] #Peach
+    206: [0,0,1,0,0,0,0,0,0,0,0] #Pineapple
+    146: [0,1,0,0,0,0,0,0,0,0,0] #Melon
+    158: [1,0,0,0,0,0,0,0,0,0,0] #Watermelon
