@@ -37,7 +37,6 @@ class SuikaGame:
         except Exception as e:
             return 
         
-
     def getScore(self):
         try:
             js = 'return cc.find("Canvas/scorePanel/gameScore")._components[0]._string'
@@ -110,6 +109,14 @@ class SuikaGame:
     def restart_game(self):
         self.setupBrowser()
 
+    def pause_game(self):
+        js = "cc.director.pause()"
+        self.browser.execute_script(js)
+    
+    def resume_game(self):
+        js = "cc.director.resume()"
+        self.browser.execute_script(js)
+        
 # game = SuikaGame()
 # shift = 0 # test slowly moving to the right to make balls move
 # while not game.checkGameOver():
