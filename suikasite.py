@@ -47,9 +47,9 @@ class SuikaGame:
     # POS 2 big values are x and y, second one is y. fruits of the same type will have the same y if they're both on the ground
     # Low X is left, high X is right.
     # output structure: [[fruits][position]]
-    # structure detail: a single cherry dropped -> [[0,0,0,0,0,0,0,0,0,0,1], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
-    # 2 cherries dropped -> [[0,0,0,0,0,0,0,0,0,0,1], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1],
-    #                        [0,0,0,0,0,0,0,0,0,0,1], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
+    # structure detail: a single cherry dropped -> [[0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
+    # 2 cherries dropped -> [[0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1],
+    #                        [0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
     def getPositions(self):
         js = 'return cc.find("Canvas/fruitNode")._children.map(child => [child._worldMatrix, child._components[3].bianjieX]);'
         try:
@@ -60,7 +60,11 @@ class SuikaGame:
             for index in range(len(result)):
                 world_matrix = dict(result[index][0])["m"]
                 # print("world matrix type: ", type(world_matrix), "| matrix: ", world_matrix)
-                fruitOHE = vars.dict[float(result[index][1])]
+                try:
+                    fruitOHE = vars.dict[float(result[index][1])]
+                except:
+                    print("fruitOHE error RESULT: ", result)
+                    time.sleep(5000)
                 # print("fruitID: ", result[index][1], "| fruit OHE: ", fruitOHE)
                 positions.extend([fruitOHE + world_matrix])
             print("POSITIONS: ", positions)

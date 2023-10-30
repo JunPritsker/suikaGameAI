@@ -17,17 +17,19 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(27, 256, 1)
+        self.model = Linear_QNet(38, 256, 1)
         self.trainer = QTrainer(self.model, learningRate=LR, gamma=self.gamma)
 
     def get_state(self, game):
         current_fruit = game.getCurrentFruit()
         positions = game.getPositions()
         if positions == []:
-            positions = [0] * 16 # there are 16 world matrix values
-        state = [current_fruit + positions]
-        print("STATE: ", state)
-        return np.array(state)
+            positions = [[0] * 27] # there are 16 world matrix values
+        for index in range(len(positions)):
+            print("pos index: ", positions[index])
+            positions[index] = current_fruit + positions[index] # prepend current fruit to every position because we need uniform arrays
+        # state = [current_fruit, positions]
+        return np.array(positions)
     
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done)) # append a tuple
