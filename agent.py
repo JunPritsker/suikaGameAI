@@ -21,14 +21,15 @@ class Agent:
         self.trainer = QTrainer(self.model, learningRate=LR, gamma=self.gamma)
 
     def get_state(self, game):
-        current_fruit = game.getCurrentFruit()
-        positions = game.getPositions()
+        # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
+        # positions = game.pauseAndGetData(game.getPositions())
+        current_fruit, positions = game.pauseAndGetData((game.getCurrentFruit(), game.getPositions()))
         if positions == []:
             positions = [[0] * 27] # there are 16 world matrix values
         for index in range(len(positions)):
             positions[index] = current_fruit + positions[index] # prepend current fruit to every position because we need uniform arrays
         # state = [current_fruit, positions]
-        return np.array(positions)
+        return np.array(positions, dtype=float)
     
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done)) # append a tuple
@@ -40,7 +41,21 @@ class Agent:
             mini_sample = self.memory
 
         states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
+        print("States type: ", type(states))
+        print("States size: ", len(states))
+        print("States size 1: ", len(states[0]))
+        print("States size 1[0]: ", len(states[0][0]))
+        print("States size 15: ", len(states[15]))
+        print("States 1", states[0])
+        print("States 1 shape", states[0].shape)
+        # print("States 15", states[15])
+        print("States 15 shape", states[15].shape)
+        print("rewards size: ", len(rewards))
+        # print("rewards[0] size: ", len(rewards[0]))
+        print("rewards[0]: ", rewards[0])
+        for state, action, reward, next_state, done in mini_sample: #this method is much slower TODO: fix batching for fast pytorch processing
+            self.trainer.train_step(state, action, reward, next_state, done)
+        # self.trainer.train_step(states, actions, rewards, next_states, dones)
 
     def train_short_memory(self, state, action, reward, next_state, done):
         self.trainer.train_step(state, action, reward, next_state, done)
@@ -71,25 +86,34 @@ def train():
     agent = Agent()
     game = suikasite.SuikaGame()
     while True:
-        # get old state
-        state_old = agent.get_state(game)
+        if not game.checkGameOver():
+            # get old state
+            state_old = agent.get_state(game)
 
-        # get move
-        final_move = agent.get_action(state_old)
+            # get move
+            final_move = agent.get_action(state_old)
 
-        # perform move and get new state
-        reward, done, score = game.play_step(final_move)
-        state_new = agent.get_state(game)
+            # perform move and get new state
+            reward, done, score = game.play_step(final_move)
+            print("Score: ", score, " | Reward: ", reward)
+            try:
+                state_new = agent.get_state(game)
+            except: #Game ended at a weird time, use old state
+                state_new = state_old
+                reward = -10
+                done = True
 
-        # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+            # train short memory
+            agent.train_short_memory(state_old, final_move, reward, state_new, done)
 
-        # remember
-        agent.remember(state_old, final_move, reward, state_new, done)
+            # remember
+            agent.remember(state_old, final_move, reward, state_new, done)
+        else:
+            done = True
 
         if done:
             # train long memory, plot results
-            game.reset()
+            game.restartGame()
             agent.n_games += 1
             agent.train_long_memory()
             

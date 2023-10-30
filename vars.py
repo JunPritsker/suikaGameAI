@@ -1,4 +1,5 @@
 dict = dict()
+dict[0] = [0,0,0,0,0,0,0,0,0,0,0] #Nothing, popped fruit
 dict[334] = [0,0,0,0,0,0,0,0,0,0,1] #Cherry
 dict[321] = [0,0,0,0,0,0,0,0,0,1,0] #Strawberry
 dict[306] = [0,0,0,0,0,0,0,0,1,0,0] #Grape

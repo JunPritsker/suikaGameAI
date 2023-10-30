@@ -21,7 +21,11 @@ class SuikaGame:
         self.browser.get('https://suikagame.io')
         time.sleep(1.5)
         self.browser.switch_to.frame("iframehtml5")
-        self.gameWindow = self.browser.find_element(By.XPATH, "/html/body/section")
+        self.startButton = self.browser.find_element(By.CLASS_NAME, "title-game-playing")
+        self.startButton.click()
+        time.sleep(1.5)
+        self.browser.switch_to.frame("iframehtml5")
+        self.gameWindow = self.browser.find_element(By.CLASS_NAME, "game-area")
         self.action = ActionChains(self.browser)
         self.previous_score = 0
         time.sleep(5) # give game time to initialize
@@ -73,6 +77,7 @@ class SuikaGame:
                 try:
                     fruitOHE = vars.dict[float(result[index][1])]
                 except Exception as e: #seems like this crashes because if it measures while a fruit pops, the fruit ID is set to 0?
+                    self.pauseGame()
                     print("fruitOHE error RESULT: ", result)
                     print("-----fruitOHE ERROR-----")
                     print(e)
@@ -80,7 +85,6 @@ class SuikaGame:
                     time.sleep(5000)
                 # print("fruitID: ", result[index][1], "| fruit OHE: ", fruitOHE)
                 positions.extend([fruitOHE + world_matrix])
-            print("POSITIONS: ", positions)
             return positions
         except JavascriptException:
             pass
@@ -106,17 +110,25 @@ class SuikaGame:
         score = self.getScore()
         return reward, done, score
 
-    def restart_game(self):
+    def restartGame(self): #TODO: hit the play button instead
         self.setupBrowser()
 
-    def pause_game(self):
+    def pauseGame(self):
         js = "cc.director.pause()"
         self.browser.execute_script(js)
     
-    def resume_game(self):
+    def resumeGame(self):
         js = "cc.director.resume()"
         self.browser.execute_script(js)
-        
+    
+    def pauseAndGetData(self, functions):
+        try:
+            self.pauseGame()
+            for func in functions:
+                yield func
+        finally:
+            self.resumeGame()
+
 # game = SuikaGame()
 # shift = 0 # test slowly moving to the right to make balls move
 # while not game.checkGameOver():

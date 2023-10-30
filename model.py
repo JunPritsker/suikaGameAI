@@ -32,16 +32,25 @@ class QTrainer:
         self.criterion = nn.MSELoss()
 
     def train_step(self, state, action, reward, next_state, done):
-        state = torch.tensor(state, dtype=torch.float)
+        try:
+            print("State size: ", state.size)
+            print("State shape: ", state.shape)
+        except:
+            pass
+
+        
+        state = torch.tensor(state, dtype=torch.float) # seems to be expecting a 1d array
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.float)
-        reward = torch.tensor(reward, dtype=torch.float)
+        reward = torch.tensor(reward, dtype=torch.int)
         # (n, x)
 
         if len(state.shape) == 2:
             # (1, x)
-            state = torch.unsqueeze(state, 0)
-            next_state = torch.unsqueeze(next_state, 0)
+            # print("Squeezed state: ", state)
+            # state = torch.unsqueeze(state, 0)
+            # print("Unsqueezed state: ", state)
+            # next_state = torch.unsqueeze(next_state, 0)
             action = torch.unsqueeze(action, 0)
             reward = torch.unsqueeze(reward, 0)
             done = (done, )
