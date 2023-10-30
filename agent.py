@@ -21,8 +21,9 @@ class Agent:
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(38, 256, 1)
-        self.loadedModel = self.loadModel()
+        self.loadedModel, self.record = self.loadModel()
         self.model = self.loadedModel if not self.loadedModel == None else self.model
+        self.record = self.record if not self.record == None else 0
         self.trainer = QTrainer(self.model, learningRate=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -46,18 +47,18 @@ class Agent:
             mini_sample = self.memory
 
         states, actions, rewards, next_states, dones = zip(*mini_sample)
-        print("States type: ", type(states))
-        print("States size: ", len(states))
-        print("States size 1: ", len(states[0]))
-        print("States size 1[0]: ", len(states[0][0]))
-        print("States size 15: ", len(states[15]))
-        print("States 1", states[0])
-        print("States 1 shape", states[0].shape)
+        # print("States type: ", type(states))
+        # print("States size: ", len(states))
+        # print("States size 1: ", len(states[0]))
+        # print("States size 1[0]: ", len(states[0][0]))
+        # print("States size 15: ", len(states[15]))
+        # print("States 1", states[0])
+        # print("States 1 shape", states[0].shape)
         # print("States 15", states[15])
-        print("States 15 shape", states[15].shape)
-        print("rewards size: ", len(rewards))
+        # print("States 15 shape", states[15].shape)
+        # print("rewards size: ", len(rewards))
         # print("rewards[0] size: ", len(rewards[0]))
-        print("rewards[0]: ", rewards[0])
+        # print("rewards[0]: ", rewards[0])
         for state, action, reward, next_state, done in mini_sample: #this method is much slower TODO: fix batching for fast pytorch processing
             self.trainer.train_step(state, action, reward, next_state, done)
         # self.trainer.train_step(states, actions, rewards, next_states, dones)
@@ -89,16 +90,21 @@ class Agent:
             file_name = os.path.join(model_folder_path, file_name)
             model = self.model
             model.load_state_dict(torch.load(file_name))
-            return model
-        return None
+            recordF = os.path.join(model_folder_path, "record")
+            with open(recordF, "r"):
+                record = int(recordF.readlines())
+                print("loaded record: ", record)
+            print("model and record loaded")
+            return model, record
+        return None, None
 
 def train():
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0
     agent = Agent()
     game = suikasite.SuikaGame()
+    record = agent.record
     while True:
         if not game.checkGameOver():
             # get old state
@@ -133,7 +139,7 @@ def train():
             
             if score > record:
                 record = score
-                agent.model.save()
+                agent.model.save(record)
 
             print("Game", agent.n_games, "Score", score, "Record", record)
 

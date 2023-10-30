@@ -15,11 +15,13 @@ class Linear_QNet(nn.Module):
         x = self.linear2(x)
         return x
     
-    def save(self, file_name="model.pth"):
+    def save(self, record, file_name="model.pth"): #TODO write high score to file as well
         model_folder_path = "./model"
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
-
+        recordF = os.path.join(model_folder_path, "record")
+        with open(recordF, "w"):
+            recordF.write(record)
         file_name = os.path.join(model_folder_path, file_name)
         torch.save(self.state_dict(), file_name)
 
@@ -32,13 +34,6 @@ class QTrainer:
         self.criterion = nn.MSELoss()
 
     def train_step(self, state, action, reward, next_state, done):
-        try:
-            print("State size: ", state.size)
-            print("State shape: ", state.shape)
-        except:
-            pass
-
-
         state = torch.tensor(state, dtype=torch.float) # seems to be expecting a 1d array
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.float)
