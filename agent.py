@@ -26,7 +26,6 @@ class Agent:
         if positions == []:
             positions = [[0] * 27] # there are 16 world matrix values
         for index in range(len(positions)):
-            print("pos index: ", positions[index])
             positions[index] = current_fruit + positions[index] # prepend current fruit to every position because we need uniform arrays
         # state = [current_fruit, positions]
         return np.array(positions)

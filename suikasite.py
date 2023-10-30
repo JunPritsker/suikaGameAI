@@ -27,11 +27,16 @@ class SuikaGame:
         time.sleep(5) # give game time to initialize
 
     def getCurrentFruit(self):
-        with open("idToFruit.yml", "r") as f:
-            idToFruit = yaml.safe_load(f)
+        try:
             js = 'return cc.find("Canvas/lineNode/fruit")._components[3].bianjieX'
             result = self.browser.execute_script(js)
+            while result not in vars.dict: # make sure we have no invalid values
+                result = self.browser.execute_script(js)
+                print("\n---------- fruit ID not found, re-checking... ----------\n")
             return self.fruitToOHE(result)
+        except Exception as e:
+            return 
+        
 
     def getScore(self):
         try:
@@ -56,14 +61,23 @@ class SuikaGame:
             positions= []
             world_matrix = []
             fruitOHE = []
+            bad_value = True
             result = self.browser.execute_script(js)
+            while bad_value:
+                for index in range(len(result)):
+                    if float(result[index][1]) not in vars.dict: # make sure we have no invalid values
+                        result = self.browser.execute_script(js)
+                bad_value = False
             for index in range(len(result)):
                 world_matrix = dict(result[index][0])["m"]
                 # print("world matrix type: ", type(world_matrix), "| matrix: ", world_matrix)
                 try:
                     fruitOHE = vars.dict[float(result[index][1])]
-                except:
+                except Exception as e: #seems like this crashes because if it measures while a fruit pops, the fruit ID is set to 0?
                     print("fruitOHE error RESULT: ", result)
+                    print("-----fruitOHE ERROR-----")
+                    print(e)
+                    print("-----fruitOHE ERROR-----")
                     time.sleep(5000)
                 # print("fruitID: ", result[index][1], "| fruit OHE: ", fruitOHE)
                 positions.extend([fruitOHE + world_matrix])
@@ -78,9 +92,11 @@ class SuikaGame:
         return vars.dict[fruitID]
         
     def checkGameOver(self):
-        gameEndDisplay = self.browser.find_element(By.ID, "GameEndScoreScreen") # if found, array should be > 0 in size
-        displayed = gameEndDisplay.get_attribute("style")
-        return True if "display: block" in displayed else False
+        js = 'cc.find("Canvas/gameManager")._components[1].endOne'
+        result = self.browser.execute_script(js)
+        # gameEndDisplay = self.browser.find_element(By.ID, "GameEndScoreScreen") # if found, array should be > 0 in size
+        # displayed = gameEndDisplay.get_attribute("style")
+        return True if result == 1 else False
 
     def play_step(self, move):
         prev_score = self.getScore()
