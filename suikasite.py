@@ -2,6 +2,7 @@ import time
 import vars
 import yaml
 import utils
+import torch
 import numpy as np
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -13,43 +14,44 @@ class SuikaGame:
     def __init__(self):
         self.browser = None
         self.action = None
-        self.previous_score = 0
+        self.score = 0
         self.setupBrowser()
 
     def setupBrowser(self):
+        print("setup browser")
         self.browser = webdriver.Chrome()
         self.browser.get('https://suikagame.io')
         time.sleep(1.5)
         self.browser.switch_to.frame("iframehtml5")
         self.startButton = self.browser.find_element(By.CLASS_NAME, "title-game-playing")
         self.startButton.click()
-        time.sleep(1.5)
+        time.sleep(1)
         self.browser.switch_to.frame("iframehtml5")
         self.gameWindow = self.browser.find_element(By.CLASS_NAME, "game-area")
         self.action = ActionChains(self.browser)
         self.previous_score = 0
-        time.sleep(5) # give game time to initialize
+        time.sleep(2) # give game time to initialize change from 5 -> 2
 
     def getCurrentFruit(self):
         try:
             js = 'return cc.find("Canvas/lineNode/fruit")._components[3].bianjieX'
             result = self.browser.execute_script(js)
-            while result not in vars.dict: # make sure we have no invalid values
-                result = self.browser.execute_script(js)
-                print("\n---------- fruit ID not found, re-checking... ----------\n")
-            return self.fruitToOHE(result)
+            currentFruit = self.fruitToOHE(float(result))
+            # print("currentFruit: ", currentFruit)
+            return currentFruit
         except Exception as e:
-            return 
+            print("[*] getCurrentFruit EXCEPTION: ", e, " | result: ", result)
+            return [[0]*11]
         
     def getScore(self):
         try:
             js = 'return cc.find("Canvas/scorePanel/gameScore")._components[0]._string'
             result = self.browser.execute_script(js)
-            self.previous_score = int(result)
+            self.score = int(result)
             return int(result)
         except JavascriptException:
             print("ERROR: couldn't get score")
-            return self.previous_score
+            return self.score
 
     # get the positions and types of each fruit
     # POS 2 big values are x and y, second one is y. fruits of the same type will have the same y if they're both on the ground
@@ -59,36 +61,66 @@ class SuikaGame:
     # 2 cherries dropped -> [[0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1],
     #                        [0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
     def getPositions(self):
-        js = 'return cc.find("Canvas/fruitNode")._children.map(child => [child._worldMatrix, child._components[3].bianjieX]);'
+        js = 'return cc.find("Canvas/fruitNode")._children.map(child => [child._components[1].angularVelocity, child._components[1].linearVelocity.x, child._components[1].linearVelocity.y, child.x, child.y, child._components[3].bianjieX]);'
         try:
-            positions= []
-            world_matrix = []
-            fruitOHE = []
-            bad_value = True
+            positions = []
             result = self.browser.execute_script(js)
-            while bad_value:
-                for index in range(len(result)):
-                    if float(result[index][1]) not in vars.dict: # make sure we have no invalid values
-                        result = self.browser.execute_script(js)
-                bad_value = False
             for index in range(len(result)):
-                world_matrix = dict(result[index][0])["m"]
-                # print("world matrix type: ", type(world_matrix), "| matrix: ", world_matrix)
+                angularVelocity = result[index][0] #float
+                linearVelocityX = result[index][1] #float
+                linearVelocityY = result[index][2] #float
+                xPos = result[index][3] #float
+                yPos = result[index][4] #float
+                id = result[index][5] #string?
                 try:
-                    fruitOHE = vars.dict[float(result[index][1])]
+                    fruitOHE = vars.dict[float(id)] # convert to float if necessary
+                    # print("pos array: ", torch.FloatTensor([[angularVelocity, linearVelocityX, linearVelocityY, xPos, yPos] + fruitOHE]))
+                    positions.extend([[angularVelocity, linearVelocityX, linearVelocityY, xPos, yPos] + fruitOHE]) # 16 values
                 except Exception as e: #seems like this crashes because if it measures while a fruit pops, the fruit ID is set to 0?
-                    self.pauseGame()
-                    print("fruitOHE error RESULT: ", result)
-                    print("-----fruitOHE ERROR-----")
-                    print(e)
-                    print("-----fruitOHE ERROR-----")
-                    time.sleep(5000)
-                # print("fruitID: ", result[index][1], "| fruit OHE: ", fruitOHE)
-                positions.extend([fruitOHE + world_matrix])
+                    print("[*] getPositionsLoop EXCEPTION: ", e)
+                    exit()
+            if len(result) == 0:
+                # positions = torch.zeros([1,16], dtype=torch.float)
+                positions = [[0]*16]
             return positions
         except JavascriptException:
-            pass
-            # print("ERROR: ", JavascriptException)
+            print("ERROR: ", JavascriptException)
+            return [[0]*16]
+        except Exception as e:
+            print("[*] getPositions EXCEPTION: ", e)
+            exit()
+
+    def isMoving(self):
+        for pos in self.getPositions():
+            if not (pos[1] <= 0.5 and pos[2] <= 0.5): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+                return True
+        return False
+
+    def getState(self):
+        # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
+        # positions = game.pauseAndGetData(game.getPositions())
+        current_fruit, positions = self.pauseAndGetData((self.getCurrentFruit(), self.getPositions()))
+        if positions == []:
+            positions = [[0] * 16] # there are 16 world matrix values
+        for index in range(len(positions)):
+            positions[index] = positions[index] + current_fruit # append current fruit to every position
+        positions = torch.from_numpy(np.array(positions, dtype=float))
+        return positions
+    
+    def getNextStates(self):
+        # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
+        # positions = game.pauseAndGetData(game.getPositions())
+        positions = self.getState()
+        states = {}
+        # states = []
+        for xclick in range(-215,215,1): # for all mouse click position options
+            # print("state append: {}, {}".format(xclick, positions))
+            states[float(xclick)] = positions
+            # states.append((xclick, positions)) # create a state with the mouse click positions and the state of the board
+    
+        # states = torch.tensor(states, dtype=float)
+        # print("states: ", states)
+        return states
 
     # lookup the fruit ID in the yml file and return a OHE of that fruit to identify it
     def fruitToOHE(self, fruitID):
@@ -101,18 +133,24 @@ class SuikaGame:
         # displayed = gameEndDisplay.get_attribute("style")
         return True if result == 1 else False
 
-    def play_step(self, move):
+    def playStep(self, move):
+        print("play step")
         prev_score = self.getScore()
         self.action.move_to_element(self.gameWindow).move_by_offset(move,0).click().perform()
-        time.sleep(0.8) # approx time it takes the ball to fall
+        time.sleep(0.5) #slight delay because sometimes next move is too fast
+        while self.isMoving(): # Wait for pieces to stop moving and not gameover
+            if self.checkGameOver():
+                break
         done = self.checkGameOver()
         reward = self.getScore() - prev_score # could also just give it a flat reward for increasing score
-        score = self.getScore()
-        return reward, done, score
+        return reward, done
 
-    def restartGame(self): #TODO: hit the play button instead
+    #TODO: hit the play button instead, although this only allows restart after game loss when the play button appears
+    #TODO: there's probably a faster way to reset the game engine without refreshing the page and waiting for the game to load
+    def restartGame(self):
         self.setupBrowser()
-
+        return self.getState()
+    
     def pauseGame(self):
         js = "cc.director.pause()"
         self.browser.execute_script(js)
@@ -123,18 +161,19 @@ class SuikaGame:
     
     def pauseAndGetData(self, functions):
         try:
+            returns = []
             self.pauseGame()
             for func in functions:
                 yield func
+            # return returns
         finally:
             self.resumeGame()
 
 # game = SuikaGame()
 # shift = 0 # test slowly moving to the right to make balls move
 # while not game.checkGameOver():
-#     time.sleep(0.05)
 #     reward, done, score = game.play_step(shift)
-#     time.sleep(1)
+#     time.sleep(0.75)
 #     game.getPositions()
 #     shift += 2
 #     # print("reward: ", reward, "| done: ", done, "| score: ", score)
