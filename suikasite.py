@@ -33,15 +33,17 @@ class SuikaGame:
         time.sleep(2) # give game time to initialize change from 5 -> 2
 
     def getCurrentFruit(self):
-        try:
-            js = 'return cc.find("Canvas/lineNode/fruit")._components[3].bianjieX'
-            result = self.browser.execute_script(js)
-            currentFruit = self.fruitToOHE(float(result))
-            # print("currentFruit: ", currentFruit)
-            return currentFruit
-        except Exception as e:
-            print("[*] getCurrentFruit EXCEPTION: ", e, " | result: ", result)
-            return [[0]*11]
+        while True: # Loop until there's a current fruit
+            try:
+                js = 'return cc.find("Canvas/lineNode/fruit")._components[3].bianjieX'
+                result = self.browser.execute_script(js)
+                currentFruit = self.fruitToOHE(float(result))
+                print("currentFruit: ", currentFruit)
+                return currentFruit
+            except Exception as e:
+                print("[*] getCurrentFruit EXCEPTION: ", e)
+                if self.checkGameOver():
+                    return [[0]*11]
         
     def getScore(self):
         try:
@@ -62,6 +64,7 @@ class SuikaGame:
     #                        [0,0,0,0,0,0,0,0,0,0,1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 359.16279069767444, 129.17978416468202, 0, 1]]
     def getPositions(self):
         js = 'return cc.find("Canvas/fruitNode")._children.map(child => [child._components[1].angularVelocity, child._components[1].linearVelocity.x, child._components[1].linearVelocity.y, child.x, child.y, child._components[3].bianjieX]);'
+        fruits = []
         try:
             positions = []
             result = self.browser.execute_script(js)
@@ -72,8 +75,9 @@ class SuikaGame:
                 xPos = result[index][3] #float
                 yPos = result[index][4] #float
                 id = result[index][5] #string?
+                # fruits.append(round(float(id),1))
                 try:
-                    fruitOHE = vars.dict[float(id)] # convert to float if necessary
+                    fruitOHE = self.fruitToOHE(round(float(id),1)) # convert to float if necessary
                     # print("pos array: ", torch.FloatTensor([[angularVelocity, linearVelocityX, linearVelocityY, xPos, yPos] + fruitOHE]))
                     positions.extend([[angularVelocity, linearVelocityX, linearVelocityY, xPos, yPos] + fruitOHE]) # 16 values
                 except Exception as e: #seems like this crashes because if it measures while a fruit pops, the fruit ID is set to 0?
@@ -82,6 +86,7 @@ class SuikaGame:
             if len(result) == 0:
                 # positions = torch.zeros([1,16], dtype=torch.float)
                 positions = [[0]*16]
+            # print("Current fruits: {}".format(fruits))
             return positions
         except JavascriptException:
             print("ERROR: ", JavascriptException)
@@ -92,7 +97,8 @@ class SuikaGame:
 
     def isMoving(self):
         for pos in self.getPositions():
-            if not (pos[1] <= 0.5 and pos[2] <= 0.5): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+            if not (pos[1] <= 8 and pos[2] <= 8): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+                # print("[*] MOVING - fruit: {} xvel: {} yvel: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2]))
                 return True
         return False
 
@@ -124,8 +130,11 @@ class SuikaGame:
 
     # lookup the fruit ID in the yml file and return a OHE of that fruit to identify it
     def fruitToOHE(self, fruitID):
-        return vars.dict[fruitID]
-        
+        return vars.idToFruiteOHE[fruitID]
+    
+    def OHEtoFruitId(self, OHE):
+        return vars.fruitOHEtoID[OHE]
+    
     def checkGameOver(self):
         js = 'cc.find("Canvas/gameManager")._components[1].endOne'
         result = self.browser.execute_script(js)
@@ -137,7 +146,7 @@ class SuikaGame:
         print("play step")
         prev_score = self.getScore()
         self.action.move_to_element(self.gameWindow).move_by_offset(move,0).click().perform()
-        time.sleep(0.5) #slight delay because sometimes next move is too fast
+        time.sleep(0.8) #slight delay because sometimes next move is too fast
         while self.isMoving(): # Wait for pieces to stop moving and not gameover
             if self.checkGameOver():
                 break
