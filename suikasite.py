@@ -33,15 +33,21 @@ class SuikaGame:
         time.sleep(2) # give game time to initialize change from 5 -> 2
 
     def getCurrentFruit(self):
+        exceptTries = 0
         while True: # Loop until there's a current fruit
             try:
                 js = 'return cc.find("Canvas/lineNode/fruit")._components[3].bianjieX'
                 result = self.browser.execute_script(js)
                 currentFruit = self.fruitToOHE(float(result))
-                print("currentFruit: ", currentFruit)
+                # print("currentFruit: ", currentFruit)
                 return currentFruit
             except Exception as e:
-                print("[*] getCurrentFruit EXCEPTION: ", e)
+                # print("GameOver?: ", self.checkGameOver())
+                print("[*] getCurrentFruit EXCEPTION: ")
+                exceptTries += 1
+                if exceptTries > 500:
+                    time.sleep(600)
+                    return [[0]*11]
                 if self.checkGameOver():
                     return [[0]*11]
         
@@ -52,7 +58,7 @@ class SuikaGame:
             self.score = int(result)
             return int(result)
         except JavascriptException:
-            print("ERROR: couldn't get score")
+            print("[*] scoreError ERROR: couldn't get score")
             return self.score
 
     # get the positions and types of each fruit
@@ -89,17 +95,34 @@ class SuikaGame:
             # print("Current fruits: {}".format(fruits))
             return positions
         except JavascriptException:
-            print("ERROR: ", JavascriptException)
+            print("[*] getPositions Javascript ERROR: ", JavascriptException)
             return [[0]*16]
         except Exception as e:
             print("[*] getPositions EXCEPTION: ", e)
             exit()
 
+    # def checkMovement(self): #TODO: deal with objects rotating in place that have positive linear velocities but aren't actually moving. This way I can lower the threshold for movement detection
+    #     moveChecks = 0
+    #     moveCheckFruit = 0
+    #     moveCheckAverageX = 0
+    #     moveCheckAverageY = 0
+        
+    #     moving, index, xVel, yVel, xPos, yPos = self.isMoving()
+    #     while moving:
+    #         moveChecks += 1
+    #         moveCheckFruit = index
+    #         moveCheckAverageX = (moveCheckAverageX + pos[3])/moveChecks
+    #         moveCheckAverageY = (moveCheckAverageY + pos[4])/moveChecks
+    #     if moveChecks > 1000:
+    #         if moveCheckAverageX - pos[3] < 1 and moveCheckAverageY - pos[4]:
+
     def isMoving(self):
         for pos in self.getPositions():
-            if not (pos[1] <= 8 and pos[2] <= 8): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
-                # print("[*] MOVING - fruit: {} xvel: {} yvel: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2]))
+            if not (pos[1] <= 25 and pos[2] <= 25): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+                # print("[*] MOVING - fruit: {} xvel: {} yvel: {}, xpos: {}, ypos: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2], pos[3], pos[4]))
+                # return True, pos, pos[1], pos[2], pos[3], pos[4]
                 return True
+        # return False, 0, 0, 0, 0
         return False
 
     def getState(self):
@@ -136,8 +159,9 @@ class SuikaGame:
         return vars.fruitOHEtoID[OHE]
     
     def checkGameOver(self):
-        js = 'cc.find("Canvas/gameManager")._components[1].endOne'
+        js = 'return cc.find("Canvas/gameManager")._components[1].endOne;'
         result = self.browser.execute_script(js)
+        # print("GameOver?: ", result, " | type: ", type(result))
         # gameEndDisplay = self.browser.find_element(By.ID, "GameEndScoreScreen") # if found, array should be > 0 in size
         # displayed = gameEndDisplay.get_attribute("style")
         return True if result == 1 else False
@@ -146,10 +170,12 @@ class SuikaGame:
         print("play step")
         prev_score = self.getScore()
         self.action.move_to_element(self.gameWindow).move_by_offset(move,0).click().perform()
-        time.sleep(0.8) #slight delay because sometimes next move is too fast
+        time.sleep(1) #slight delay because sometimes next move is too fast
+        print("check movement")    
         while self.isMoving(): # Wait for pieces to stop moving and not gameover
             if self.checkGameOver():
-                break
+                break # Wait for pieces to stop moving and not gameover    
+        time.sleep(1) # extra time to complete bubble merging TODO: check if any merges are active
         done = self.checkGameOver()
         reward = self.getScore() - prev_score # could also just give it a flat reward for increasing score
         return reward, done
@@ -173,8 +199,8 @@ class SuikaGame:
             returns = []
             self.pauseGame()
             for func in functions:
-                yield func
-            # return returns
+                returns.append(func)
+            return returns
         finally:
             self.resumeGame()
 

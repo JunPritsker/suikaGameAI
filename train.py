@@ -1,5 +1,6 @@
 """
-@author: Viet Nguyen <nhviet1009@gmail.com>
+previous @author: Viet Nguyen <nhviet1009@gmail.com>
+adapted by @author: Jun Pritsker <junpritsker@gmail.com>
 """
 import argparse
 import os
@@ -27,8 +28,8 @@ def get_args():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--initial_epsilon", type=float, default=1)
     parser.add_argument("--final_epsilon", type=float, default=1e-3)
-    parser.add_argument("--num_decay_epochs", type=float, default=2000)
-    parser.add_argument("--num_epochs", type=int, default=3000)
+    parser.add_argument("--num_decay_epochs", type=float, default=6)
+    parser.add_argument("--num_epochs", type=int, default=10)
     parser.add_argument("--save_interval", type=int, default=1000)
     parser.add_argument("--replay_memory_size", type=int, default=30000,
                         help="Number of epoches between testing phases")
@@ -92,6 +93,7 @@ def train(opt):
             next_state = next_state.cuda()
         replay_memory.append([state, reward, next_state, done]) # determine sequence of when we calculate rewards. may need to wait for balls to start moving for accurate reward but this costs time
         if done:
+            print("DONE")
             final_score = game.score
             # final_tetrominoes = env.tetrominoes
             # final_cleared_lines = env.cleared_lines
@@ -100,6 +102,7 @@ def train(opt):
             if torch.cuda.is_available():
                 state = state.cuda()
         else:
+            # print("NOT DONE")
             state = next_state
             continue
         if len(replay_memory) < opt.replay_memory_size / 10:
@@ -141,9 +144,9 @@ def train(opt):
         # writer.add_scalar('Train/Cleared lines', final_cleared_lines, epoch - 1)
 
         if epoch > 0 and epoch % opt.save_interval == 0:
-            torch.save(model, "{}/tetris_{}".format(opt.saved_path, epoch))
+            torch.save(model, "{}/suika_{}".format(opt.saved_path, epoch))
 
-    torch.save(model, "{}/tetris".format(opt.saved_path))
+    torch.save(model, "{}/suika".format(opt.saved_path))
 
 
 if __name__ == "__main__":
