@@ -15,7 +15,7 @@ from model import DeepQNetwork
 from collections import deque
 
 import suikasite
-import agent
+from helper import plot
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -30,8 +30,8 @@ def get_args():
     parser.add_argument("--final_epsilon", type=float, default=1e-3)
     parser.add_argument("--num_decay_epochs", type=float, default=6)
     parser.add_argument("--num_epochs", type=int, default=10)
-    parser.add_argument("--save_interval", type=int, default=1000)
-    parser.add_argument("--replay_memory_size", type=int, default=30000,
+    parser.add_argument("--save_interval", type=int, default=2)
+    parser.add_argument("--replay_memory_size", type=int, default=1000,
                         help="Number of epoches between testing phases")
     parser.add_argument("--log_path", type=str, default="tensorboard")
     parser.add_argument("--saved_path", type=str, default="trained_models")
@@ -60,7 +60,11 @@ def train(opt):
 
     replay_memory = deque(maxlen=opt.replay_memory_size)
     epoch = 0
+    plotScores = []
+    plotMeanScores = []
+    totalScore = 0
     while epoch < opt.num_epochs:
+        moves = 0
         next_steps = game.getNextStates()
         # print("next steps: ", next_steps)
         # Exploration or exploitation
@@ -86,15 +90,17 @@ def train(opt):
         next_state = next_states[index, :]
         action = next_actions[index]
 
-        reward, done = game.playStep(action)
+        reward, done, score = game.playStep(action)
+        moves += 1
         print("Action: {} Reward: {}".format(action, reward))
 
         if torch.cuda.is_available():
             next_state = next_state.cuda()
-        replay_memory.append([state, reward, next_state, done]) # determine sequence of when we calculate rewards. may need to wait for balls to start moving for accurate reward but this costs time
+        replay_memory.append([state, reward, score, next_state, done]) # determine sequence of when we calculate rewards. may need to wait for balls to start moving for accurate reward but this costs time
         if done:
-            print("DONE")
             final_score = game.score
+            totalScore += final_score
+            plotScores.append(final_score)
             # final_tetrominoes = env.tetrominoes
             # final_cleared_lines = env.cleared_lines
             # state = env.reset()
@@ -106,13 +112,22 @@ def train(opt):
             state = next_state
             continue
         if len(replay_memory) < opt.replay_memory_size / 10:
+            print("Replay memory size: {}".format(len(replay_memory)))
             continue
         epoch += 1
+        print("EPOCH: {}".format(epoch))
+        meanScore = totalScore / epoch
+        plotMeanScores.append(meanScore)
+        plot(plotScores, plotMeanScores)
+
         batch = sample(replay_memory, min(len(replay_memory), opt.batch_size))
-        state_batch, reward_batch, next_state_batch, done_batch = zip(*batch)
-        state_batch = torch.stack(tuple(state for state in state_batch))
+        state_batch, reward_batch, score_batch, next_state_batch, done_batch = zip(*batch)
+        state_batch = torch.cat(tuple(state for state in state_batch))
+        print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
+        score_batch = torch.from_numpy(np.array(score_batch, dtype=np.float32)[:, None])
         reward_batch = torch.from_numpy(np.array(reward_batch, dtype=np.float32)[:, None])
-        next_state_batch = torch.stack(tuple(state for state in next_state_batch))
+        print("Reward batch: {}, len: {}".format(reward_batch, len(reward_batch)))
+        next_state_batch = torch.cat(tuple(state for state in next_state_batch))
 
         if torch.cuda.is_available():
             state_batch = state_batch.cuda()
@@ -130,6 +145,8 @@ def train(opt):
                   zip(reward_batch, done_batch, next_prediction_batch)))[:, None]
 
         optimizer.zero_grad()
+        print("qval: {}, y_batch: {}".format(q_values, y_batch))
+        print("lens qval: {}, y_batch: {}".format(len(q_values), len(y_batch)))
         loss = criterion(q_values, y_batch)
         loss.backward()
         optimizer.step()

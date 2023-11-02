@@ -15,10 +15,12 @@ class SuikaGame:
         self.browser = None
         self.action = None
         self.score = 0
+        self.previousPositions = None
+        self.previousCurrentFruit = None
         self.setupBrowser()
 
     def setupBrowser(self):
-        print("setup browser")
+        # print("setup browser")
         self.browser = webdriver.Chrome()
         self.browser.get('https://suikagame.io')
         time.sleep(1.5)
@@ -40,16 +42,17 @@ class SuikaGame:
                 result = self.browser.execute_script(js)
                 currentFruit = self.fruitToOHE(float(result))
                 # print("currentFruit: ", currentFruit)
+                self.previousCurrentFruit = currentFruit
                 return currentFruit
             except Exception as e:
                 # print("GameOver?: ", self.checkGameOver())
-                print("[*] getCurrentFruit EXCEPTION: ")
+                # print("[*] getCurrentFruit EXCEPTION: ")
                 exceptTries += 1
                 if exceptTries > 500:
                     time.sleep(600)
-                    return [[0]*11]
+                    return self.previousCurrentFruit
                 if self.checkGameOver():
-                    return [[0]*11]
+                    return self.previousCurrentFruit
         
     def getScore(self):
         try:
@@ -93,37 +96,40 @@ class SuikaGame:
                 # positions = torch.zeros([1,16], dtype=torch.float)
                 positions = [[0]*16]
             # print("Current fruits: {}".format(fruits))
+            self.previousPositions = positions
             return positions
         except JavascriptException:
             print("[*] getPositions Javascript ERROR: ", JavascriptException)
-            return [[0]*16]
+            return self.previousPositions
         except Exception as e:
             print("[*] getPositions EXCEPTION: ", e)
+            return self.previousPositions
             exit()
 
-    # def checkMovement(self): #TODO: deal with objects rotating in place that have positive linear velocities but aren't actually moving. This way I can lower the threshold for movement detection
-    #     moveChecks = 0
-    #     moveCheckFruit = 0
-    #     moveCheckAverageX = 0
-    #     moveCheckAverageY = 0
+    def isMoving(self): #TODO: deal with objects rotating in place that have positive linear velocities but aren't actually moving. This way I can lower the threshold for movement detection
+        moveChecks = 0
+        moveCheckAverageX = 0
+        # moveCheckAverageY = 0
         
-    #     moving, index, xVel, yVel, xPos, yPos = self.isMoving()
-    #     while moving:
-    #         moveChecks += 1
-    #         moveCheckFruit = index
-    #         moveCheckAverageX = (moveCheckAverageX + pos[3])/moveChecks
-    #         moveCheckAverageY = (moveCheckAverageY + pos[4])/moveChecks
-    #     if moveChecks > 1000:
-    #         if moveCheckAverageX - pos[3] < 1 and moveCheckAverageY - pos[4]:
+        moving, xPos = self.getMovement()
+        while moving:
+            moveChecks += 1
+            moveCheckAverageX = (abs(moveCheckAverageX) + abs(xPos))/moveChecks
+            # moveCheckAverageY = (moveCheckAverageY + abs(yPos))/moveChecks
+            if moveChecks > 1000:
+                print("Moving average: {}, xpos: {}, diff: {}".format(moveCheckAverageX, xPos, abs(moveCheckAverageX) - abs(xPos)))
+                if abs(moveCheckAverageX) - abs(xPos) < 1:
+                    return False
+            moving, xPos = self.getMovement()
 
-    def isMoving(self):
+    def getMovement(self):
         for pos in self.getPositions():
-            if not (pos[1] <= 25 and pos[2] <= 25): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+            if not (pos[1] <= 15 and pos[2] <= 15): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
                 # print("[*] MOVING - fruit: {} xvel: {} yvel: {}, xpos: {}, ypos: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2], pos[3], pos[4]))
-                # return True, pos, pos[1], pos[2], pos[3], pos[4]
-                return True
+                return True, pos[3]
+                # return True
         # return False, 0, 0, 0, 0
-        return False
+        return False, pos[3]
 
     def getState(self):
         # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
@@ -167,18 +173,19 @@ class SuikaGame:
         return True if result == 1 else False
 
     def playStep(self, move):
-        print("play step")
         prev_score = self.getScore()
-        self.action.move_to_element(self.gameWindow).move_by_offset(move,0).click().perform()
-        time.sleep(1) #slight delay because sometimes next move is too fast
-        print("check movement")    
-        while self.isMoving(): # Wait for pieces to stop moving and not gameover
-            if self.checkGameOver():
-                break # Wait for pieces to stop moving and not gameover    
-        time.sleep(1) # extra time to complete bubble merging TODO: check if any merges are active
         done = self.checkGameOver()
-        reward = self.getScore() - prev_score # could also just give it a flat reward for increasing score
-        return reward, done
+        if not done:
+            self.action.move_to_element(self.gameWindow).move_by_offset(move,0).click().perform()
+            time.sleep(1) #slight delay because sometimes next move is too fast   
+            while self.isMoving(): # Wait for pieces to stop moving and not gameover
+                if self.checkGameOver():
+                    break # Wait for pieces to stop moving and not gameover    
+            time.sleep(1) # extra time to complete bubble merging TODO: check if any merges are active
+        done = self.checkGameOver()
+        if done: reward = -10
+        else: reward = self.getScore() - prev_score # could also just give it a flat reward for increasing score
+        return reward, done, self.getScore()
 
     #TODO: hit the play button instead, although this only allows restart after game loss when the play button appears
     #TODO: there's probably a faster way to reset the game engine without refreshing the page and waiting for the game to load
@@ -203,13 +210,3 @@ class SuikaGame:
             return returns
         finally:
             self.resumeGame()
-
-# game = SuikaGame()
-# shift = 0 # test slowly moving to the right to make balls move
-# while not game.checkGameOver():
-#     reward, done, score = game.play_step(shift)
-#     time.sleep(0.75)
-#     game.getPositions()
-#     shift += 2
-#     # print("reward: ", reward, "| done: ", done, "| score: ", score)
-# print("-----GAME OVER-----")
