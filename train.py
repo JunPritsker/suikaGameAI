@@ -10,6 +10,7 @@ from random import random, randint, sample
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from model import DeepQNetwork
 from collections import deque
@@ -30,14 +31,19 @@ def get_args():
     parser.add_argument("--final_epsilon", type=float, default=1e-3)
     parser.add_argument("--num_decay_epochs", type=float, default=6)
     parser.add_argument("--num_epochs", type=int, default=10)
-    parser.add_argument("--save_interval", type=int, default=2)
-    parser.add_argument("--replay_memory_size", type=int, default=1000,
+    parser.add_argument("--save_interval", type=int, default=1)
+    parser.add_argument("--replay_memory_size", type=int, default=500,
                         help="Number of epoches between testing phases")
     parser.add_argument("--log_path", type=str, default="tensorboard")
     parser.add_argument("--saved_path", type=str, default="trained_models")
 
     args = parser.parse_args()
     return args
+
+def pad_tensors(tensors, dim):
+    max_size = max([tensor.size(dim) for tensor in tensors])
+    padded_tensors = [F.pad(tensor, [0, 0] * (tensor.dim() - 1) + [0, max_size - tensor.size(dim)]) for tensor in tensors]
+    return padded_tensors
 
 
 def train(opt):
@@ -47,7 +53,7 @@ def train(opt):
         torch.manual_seed(123)
     if os.path.isdir(opt.log_path):
         shutil.rmtree(opt.log_path)
-    model = DeepQNetwork(27,256,1) #16 inputs from network
+    model = DeepQNetwork(27, 256, 1) #16 inputs from network
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
     criterion = nn.MSELoss()
 
@@ -80,7 +86,8 @@ def train(opt):
             next_states = next_states.cuda()
         model.eval()
         with torch.no_grad():
-            predictions = model(next_states)[:, 0]
+            print("next_states len {}, len [0]: {}, next_states: {}".format(next_states.shape, next_states[0].shape, next_states))
+            predictions = model(next_states)[:, 0] #picks out just array index 0
         model.train()
         if random_action:
             index = randint(0, len(next_steps) - 1)
@@ -122,14 +129,26 @@ def train(opt):
 
         batch = sample(replay_memory, min(len(replay_memory), opt.batch_size))
         state_batch, reward_batch, score_batch, next_state_batch, done_batch = zip(*batch)
-        state_batch = torch.cat(tuple(state for state in state_batch))
-        print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
-        score_batch = torch.from_numpy(np.array(score_batch, dtype=np.float32)[:, None])
-        reward_batch = torch.from_numpy(np.array(reward_batch, dtype=np.float32)[:, None])
+        
+        # print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
+        print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
+        # print("State batch[25]: {}, len: {}".format(state_batch[25], len(state_batch)))
+        state_batch = pad_tensors(state_batch, 0)
+        print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
+        # state_batch = torch.cat(tuple(state for state in state_batch))
+        # print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
+        # print("State batch shape: {}".format(state_batch.shape))
+        # print("State batch[25]: {}, len: {}".format(state_batch[25], len(state_batch)))
+        score_batch = torch.from_numpy(np.array(score_batch, dtype=np.float16)[:, None])
+        print("Score batch: {}, len: {}".format(score_batch, len(score_batch)))
+        reward_batch = torch.from_numpy(np.array(reward_batch, dtype=np.float16)[:, None])
         print("Reward batch: {}, len: {}".format(reward_batch, len(reward_batch)))
-        next_state_batch = torch.cat(tuple(state for state in next_state_batch))
+        next_state_batch =  torch.cat(tuple(state for state in next_state_batch))
 
         if torch.cuda.is_available():
+            print("State batch [12] size: {}, [5] size: {}".format(len(state_batch[12]), len(state_batch[5])))
+            # state_batch = torch.from_numpy(np.array([t.cuda() for t in state_batch]))
+            state_batch = torch.stack(state_batch)
             state_batch = state_batch.cuda()
             reward_batch = reward_batch.cuda()
             next_state_batch = next_state_batch.cuda()
@@ -147,6 +166,7 @@ def train(opt):
         optimizer.zero_grad()
         print("qval: {}, y_batch: {}".format(q_values, y_batch))
         print("lens qval: {}, y_batch: {}".format(len(q_values), len(y_batch)))
+        print("dims qval[0]: {}, y_batch shape: {}".format(len(q_values[0]) , y_batch.shape))
         loss = criterion(q_values, y_batch)
         loss.backward()
         optimizer.step()

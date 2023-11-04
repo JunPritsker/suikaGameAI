@@ -8,6 +8,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import JavascriptException
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.options import Options
 
 class SuikaGame:
 
@@ -21,6 +22,9 @@ class SuikaGame:
 
     def setupBrowser(self):
         # print("setup browser")
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
         self.browser = webdriver.Chrome()
         self.browser.get('https://suikagame.io')
         time.sleep(1.5)
@@ -110,16 +114,19 @@ class SuikaGame:
         moveChecks = 0
         moveCheckAverageX = 0
         # moveCheckAverageY = 0
-        
+        totalX = 0
         moving, xPos = self.getMovement()
         while moving:
+            totalX = totalX + xPos
             moveChecks += 1
-            moveCheckAverageX = (abs(moveCheckAverageX) + abs(xPos))/moveChecks
+            moveCheckAverageX = (abs(totalX) + abs(xPos))/moveChecks
             # moveCheckAverageY = (moveCheckAverageY + abs(yPos))/moveChecks
-            if moveChecks > 1000:
+            if moveChecks > 500: # check if there's no difference in xPos, then the piece is spinning in place and not actually moving
                 print("Moving average: {}, xpos: {}, diff: {}".format(moveCheckAverageX, xPos, abs(moveCheckAverageX) - abs(xPos)))
                 if abs(moveCheckAverageX) - abs(xPos) < 1:
                     return False
+            if moveChecks > 1000: # break out of inifinite loop
+                return False
             moving, xPos = self.getMovement()
 
     def getMovement(self):
@@ -133,12 +140,14 @@ class SuikaGame:
 
     def getState(self):
         # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
-        # positions = game.pauseAndGetData(game.getPositions())
+        # positions = game.pauseAndGetData(game.s())
         current_fruit, positions = self.pauseAndGetData((self.getCurrentFruit(), self.getPositions()))
         if positions == []:
             positions = [[0] * 16] # there are 16 world matrix values
         for index in range(len(positions)):
-            positions[index] = positions[index] + current_fruit # append current fruit to every position
+            # print("posLen: {}".format(len(positions)))
+            if not len(positions[index]) == 27:
+                positions[index] = positions[index] + current_fruit # append current fruit to every position
         positions = torch.from_numpy(np.array(positions, dtype=float))
         return positions
     
@@ -204,9 +213,11 @@ class SuikaGame:
     def pauseAndGetData(self, functions):
         try:
             returns = []
-            self.pauseGame()
+            # self.pauseGame()
             for func in functions:
                 returns.append(func)
             return returns
-        finally:
-            self.resumeGame()
+        except JavascriptException as e:
+            print("[*] puaseAndGetData JavaScriptException: {}", e)
+        # finally:
+            # self.resumeGame()
