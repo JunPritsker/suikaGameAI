@@ -131,7 +131,7 @@ class SuikaGame:
 
     def getMovement(self):
         for pos in self.getPositions():
-            if not (pos[1] <= 15 and pos[2] <= 15): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+            if not (pos[1] <= 15 and pos[2] <= 15 and pos[0]): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
                 # print("[*] MOVING - fruit: {} xvel: {} yvel: {}, xpos: {}, ypos: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2], pos[3], pos[4]))
                 return True, pos[3]
                 # return True
@@ -192,7 +192,9 @@ class SuikaGame:
                     break # Wait for pieces to stop moving and not gameover    
             time.sleep(1) # extra time to complete bubble merging TODO: check if any merges are active
         done = self.checkGameOver()
-        if done: reward = -10
+        if done:
+            reward = -10
+            time.sleep(5) # wait for bubbles to pop
         else: reward = self.getScore() - prev_score # could also just give it a flat reward for increasing score
         return reward, done, self.getScore()
 

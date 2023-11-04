@@ -159,6 +159,12 @@ def train(opt):
             next_prediction_batch = model(next_state_batch)
         model.train()
 
+        q_values_clone = torch.clone(q_values)
+        q_values_clone = torch.flatten(q_values_clone, 1)
+        print("q_val_clone shpae: {} ", q_values_clone.shape)
+        # for qVal in q_values_clone:
+            # q_values_clone[qVal] = torch.flatten(q_values_clone)
+
         y_batch = torch.cat(
             tuple(reward if done else reward + opt.gamma * prediction for reward, done, prediction in
                   zip(reward_batch, done_batch, next_prediction_batch)))[:, None]
@@ -167,7 +173,7 @@ def train(opt):
         print("qval: {}, y_batch: {}".format(q_values, y_batch))
         print("lens qval: {}, y_batch: {}".format(len(q_values), len(y_batch)))
         print("dims qval[0]: {}, y_batch shape: {}".format(len(q_values[0]) , y_batch.shape))
-        loss = criterion(q_values, y_batch)
+        loss = criterion(q_values_clone, y_batch)
         loss.backward()
         optimizer.step()
 
