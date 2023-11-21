@@ -115,28 +115,29 @@ class SuikaGame:
         moveCheckAverageX = 0
         # moveCheckAverageY = 0
         totalX = 0
-        moving, xPos = self.getMovement()
+        moving, xPos, id = self.getMovement()
         while moving:
-            totalX = totalX + xPos
             moveChecks += 1
             moveCheckAverageX = (abs(totalX) + abs(xPos))/moveChecks
+            totalX = abs(totalX) + abs(xPos)
             # moveCheckAverageY = (moveCheckAverageY + abs(yPos))/moveChecks
             if moveChecks > 500: # check if there's no difference in xPos, then the piece is spinning in place and not actually moving
-                print("Moving average: {}, xpos: {}, diff: {}".format(moveCheckAverageX, xPos, abs(moveCheckAverageX) - abs(xPos)))
+                print("ID: {}, type: {}".format(id, type(id)))
+                print("Moving average: {}, xpos: {}, diff: {}, id: {}".format(moveCheckAverageX, xPos, abs(moveCheckAverageX) - abs(xPos), self.idToFruit(round(float(id),1))))
                 if abs(moveCheckAverageX) - abs(xPos) < 1:
                     return False
             if moveChecks > 1000: # break out of inifinite loop
                 return False
-            moving, xPos = self.getMovement()
+            moving, xPos, id = self.getMovement()
 
     def getMovement(self):
         for pos in self.getPositions():
-            if not (pos[1] <= 15 and pos[2] <= 15 and pos[0]): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
+            if not (pos[1] <= 15 and pos[2] <= 15 and pos[0] <= 15): # Shouldn't need to check angular velocity because if it's rotating and moving, it'll have linear vel too. If it's just angular, it's spinning in place
                 # print("[*] MOVING - fruit: {} xvel: {} yvel: {}, xpos: {}, ypos: {}".format(self.OHEtoFruitId(str(pos[5:])), pos[1], pos[2], pos[3], pos[4]))
-                return True, pos[3]
+                return True, pos[3], pos[5]
                 # return True
         # return False, 0, 0, 0, 0
-        return False, pos[3]
+        return False, pos[3], pos[5]
 
     def getState(self):
         # current_fruit = game.pauseAngGetData(game.getCurrentFruit())
@@ -172,6 +173,9 @@ class SuikaGame:
     
     def OHEtoFruitId(self, OHE):
         return vars.fruitOHEtoID[OHE]
+    
+    def idToFruit(self, fruitID):
+        return vars.idToFruit[fruitID]
     
     def checkGameOver(self):
         js = 'return cc.find("Canvas/gameManager")._components[1].endOne;'

@@ -12,6 +12,20 @@ idToFruiteOHE[206.0] = [0,0,1,0,0,0,0,0,0,0,0] #Pineapple
 idToFruiteOHE[146.0] = [0,1,0,0,0,0,0,0,0,0,0] #Melon
 idToFruiteOHE[158.0] = [1,0,0,0,0,0,0,0,0,0,0] #Watermelon
 
+idToFruit = dict()
+idToFruit[0.0] = "Nothing" # popped fruit
+idToFruit[334.0] = "Cherry"
+idToFruit[321.0] = "Strawberry"
+idToFruit[306.0] = "Grape"
+idToFruit[300.5] = "Dekopon"
+idToFruit[283.5] = "Orange"
+idToFruit[268.5] = "Apple"
+idToFruit[267.0] = "Pear"
+idToFruit[231.0] = "Peach"
+idToFruit[206.0] = "Pineapple"
+idToFruit[146.0] = "Melon"
+idToFruit[158.0] = "Watermelon"
+
 fruitOHEtoID = dict()
 fruitOHEtoID[str([0,0,0,0,0,0,0,0,0,0,0])] = 0.0
 fruitOHEtoID[str([0,0,0,0,0,0,0,0,0,0,1])] = [334.0] #Cherry
