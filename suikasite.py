@@ -23,11 +23,13 @@ class SuikaGame:
         # print("setup browser")
         options = Options()
         options.page_load_strategy = "eager"
+        options.add_extension("./uBlock-Origin.crx")
         # options.add_argument('--headless')
         # options.add_argument('--disable-gpu')
         # caps = DesiredCapabilities().CHROME
         # caps["pageLoadStrategy"] = "eager"
         self.browser = webdriver.Chrome(options=options)
+        time.sleep(5)
         self.browser.get('https://suikagame.io')
         print("loading site")
         self.browser.switch_to.frame("iframehtml5")
