@@ -13,7 +13,7 @@ class DeepQNetwork(nn.Module):
         self.conv3 = nn.Sequential(nn.Linear(hidden_size, output_size))
 
         self._create_weights()
-        self.double()
+        self.float()
         # self.linear1 = nn.Linear(input_size, hidden_size)
         # self.linear2 = nn.Linear(hidden_size, output_size)
 
