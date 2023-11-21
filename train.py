@@ -16,7 +16,7 @@ from model import DeepQNetwork
 from collections import deque
 
 import suikasite
-from helper import plot
+from helper import plot, plotAndSave
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -30,8 +30,8 @@ def get_args():
     parser.add_argument("--initial_epsilon", type=float, default=1)
     parser.add_argument("--final_epsilon", type=float, default=1e-3)
     parser.add_argument("--num_decay_epochs", type=int, default=6)
-    parser.add_argument("--num_epochs", type=int, default=10)
-    parser.add_argument("--save_interval", type=int, default=1)
+    parser.add_argument("--num_epochs", type=int, default=20)
+    parser.add_argument("--save_interval", type=int, default=2)
     parser.add_argument("--replay_memory_size", type=int, default=500,
                         help="Number of epoches between testing phases")
     parser.add_argument("--log_path", type=str, default="tensorboard")
@@ -55,6 +55,7 @@ def train(opt):
     if os.path.isdir(opt.log_path):
         shutil.rmtree(opt.log_path)
     model = DeepQNetwork(27, 256, 1) #16 inputs from network
+    # model = torch.load("{}/suika".format(opt.saved_path))
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
     criterion = nn.MSELoss()
 
@@ -95,13 +96,15 @@ def train(opt):
             
         model.eval()
         with torch.no_grad():
-            print("next_states len {}, len [0]: {}, next_states: {}".format(next_states.shape, next_states[0].shape, next_states))
+            # print("next_states len {}, len [0]: {}, next_states: {}".format(next_states.shape, next_states[0].shape, next_states))
             predictions = model(next_states)[:, 0] #picks out just array index 0
         model.train()
         if random_action:
             index = randint(0, len(next_steps) - 1)
+            print("Random action: {}".format(index))
         else:
             index = torch.argmax(predictions).item()
+            print("Intentional action: {}".format(index))
 
         next_state = next_states[index, :]
         action = next_actions[index]
@@ -146,19 +149,13 @@ def train(opt):
         batch = sample(replay_memory, min(len(replay_memory), opt.batch_size))
         state_batch, reward_batch, score_batch, next_state_batch, done_batch = zip(*batch)
         
-        # print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
-        print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
-        # print("State batch[25]: {}, len: {}".format(state_batch[25], len(state_batch)))
+        # print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
         state_batch = pad_tensors(state_batch, 0)
-        print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
-        # state_batch = torch.cat(tuple(state for state in state_batch))
-        # print("State batch: {}, len: {}".format(state_batch, len(state_batch)))
-        # print("State batch shape: {}".format(state_batch.shape))
-        # print("State batch[25]: {}, len: {}".format(state_batch[25], len(state_batch)))
+        # print("State batch type: {}, len: {}".format(type(state_batch), len(state_batch)))
         score_batch = torch.from_numpy(np.array(score_batch, dtype=np.float16)[:, None])
-        print("Score batch: {}, len: {}".format(score_batch, len(score_batch)))
+        # print("Score batch: {}, len: {}".format(score_batch, len(score_batch)))
         reward_batch = torch.from_numpy(np.array(reward_batch, dtype=np.float16)[:, None])
-        print("Reward batch: {}, len: {}".format(reward_batch, len(reward_batch)))
+        # print("Reward batch: {}, len: {}".format(reward_batch, len(reward_batch)))
         next_state_batch =  torch.cat(tuple(state for state in next_state_batch))
 
         state_batch = torch.stack(state_batch)
@@ -181,6 +178,12 @@ def train(opt):
             next_prediction_batch = model(next_state_batch)
         model.train()
 
+        q_values_clone = torch.clone(q_values)
+        q_values_clone = torch.flatten(q_values_clone, 1)
+        # print("q_val_clone shpae: {} ", q_values_clone.shape)
+        # for qVal in q_values_clone:
+            # q_values_clone[qVal] = torch.flatten(q_values_clone)
+
         y_batch = torch.cat(
             tuple(reward if done else reward + opt.gamma * prediction for reward, done, prediction in
                   zip(reward_batch, done_batch, next_prediction_batch)))[:, None]
@@ -189,7 +192,8 @@ def train(opt):
         print("qval: {}, y_batch: {}".format(q_values, y_batch))
         print("lens qval: {}, y_batch: {}".format(len(q_values), len(y_batch)))
         print("dims qval[0]: {}, y_batch shape: {}".format(len(q_values[0]) , y_batch.shape))
-        loss = criterion(q_values, y_batch)
+        loss = criterion(q_values_clone, y_batch)
+        print("Loss: {}, loss type: {}".format(loss, type(loss)))
         loss.backward()
         optimizer.step()
 
@@ -205,6 +209,7 @@ def train(opt):
         if epoch > 0 and epoch % opt.save_interval == 0:
             torch.save(model, "{}/suika_{}".format(opt.saved_path, epoch))
 
+    plotAndSave(plotScores, plotMeanScores)
     torch.save(model, "{}/suika".format(opt.saved_path))
 
 
