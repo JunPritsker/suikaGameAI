@@ -1,7 +1,5 @@
 import time
 import vars
-import yaml
-import utils
 import torch
 import numpy as np
 from selenium import webdriver
@@ -9,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import JavascriptException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 class SuikaGame:
 
@@ -81,11 +80,11 @@ class SuikaGame:
             positions = []
             result = self.browser.execute_script(js)
             for index in range(len(result)):
-                angularVelocity = result[index][0] #float
-                linearVelocityX = result[index][1] #float
-                linearVelocityY = result[index][2] #float
-                xPos = result[index][3] #float
-                yPos = result[index][4] #float
+                angularVelocity = np.float32(result[index][0]) #float
+                linearVelocityX = np.float32(result[index][1]) #float
+                linearVelocityY = np.float32(result[index][2]) #float
+                xPos = np.float32(result[index][3]) #float
+                yPos = np.float32(result[index][4]) #float
                 id = result[index][5] #string?
                 # fruits.append(round(float(id),1))
                 try:
@@ -148,7 +147,7 @@ class SuikaGame:
             # print("posLen: {}".format(len(positions)))
             if not len(positions[index]) == 27:
                 positions[index] = positions[index] + current_fruit # append current fruit to every position
-        positions = torch.from_numpy(np.array(positions, dtype=float))
+        positions = torch.from_numpy(np.array(positions, dtype="float32"))
         return positions
     
     def getNextStates(self):
@@ -226,3 +225,20 @@ class SuikaGame:
             print("[*] puaseAndGetData JavaScriptException: {}", e)
         # finally:
             # self.resumeGame()
+            
+    def waitForElement(self, driver, by, value):
+        # element = driver.find_element(by, value)
+        element = driver.find_element(By.CLASS_NAME, "title-game-playing")
+        i=0
+        while i < 1000 and element == None:
+            # element = driver.find_element(by, value)
+            element = driver.find_element(By.CLASS_NAME, "title-game-playing")
+            print(element.text)
+            time.sleep(0.01)
+            i = i+1
+        if i == 1000:
+            print("can not find the element in 10 seconds")
+            return None
+        else:
+            print("find element in {} seconds".format(i*0.01))
+            return element
