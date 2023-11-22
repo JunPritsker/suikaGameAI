@@ -29,7 +29,7 @@ def get_args():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--initial_epsilon", type=float, default=1)
     parser.add_argument("--final_epsilon", type=float, default=1e-3)
-    parser.add_argument("--num_decay_epochs", type=float, default=6)
+    parser.add_argument("--num_decay_epochs", type=int, default=6)
     parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--save_interval", type=int, default=2)
     parser.add_argument("--replay_memory_size", type=int, default=500,
@@ -47,8 +47,9 @@ def pad_tensors(tensors, dim):
 
 
 def train(opt):
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(123)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(123)
+        torch.set_default_device(torch.device("mps"))
     else:
         torch.manual_seed(123)
     if os.path.isdir(opt.log_path):
@@ -61,8 +62,12 @@ def train(opt):
     game = suikasite.SuikaGame() # this already "restarts the game, no need to restart below
     # state will be current piece in hand, game state(fruits and positions), and possible actions: list(range(-215,215,1))
     state = game.getState()
-    if torch.cuda.is_available():
-        model.cuda()
+    
+    if torch.backends.mps.is_available():
+        model = model.to(torch.device("mps"))
+        state = state.to(torch.device("mps"))
+    elif torch.cuda.is_available():
+        model = model.cuda()
         state = state.cuda()
 
     replay_memory = deque(maxlen=opt.replay_memory_size)
@@ -73,7 +78,7 @@ def train(opt):
     while epoch < opt.num_epochs:
         moves = 0
         next_steps = game.getNextStates()
-        # print("next steps: ", next_steps)
+
         # Exploration or exploitation
         epsilon = opt.final_epsilon + (max(opt.num_decay_epochs - epoch, 0) * (
                 opt.initial_epsilon - opt.final_epsilon) / opt.num_decay_epochs)
@@ -83,8 +88,12 @@ def train(opt):
             # print("ZIP: ", item, value)
         next_actions, next_states = zip(*next_steps.items())
         next_states = torch.stack(next_states)
-        if torch.cuda.is_available():
+        
+        if torch.backends.mps.is_available():
+            next_states = next_states.to(torch.device("mps"))
+        elif torch.cuda.is_available():
             next_states = next_states.cuda()
+            
         model.eval()
         with torch.no_grad():
             # print("next_states len {}, len [0]: {}, next_states: {}".format(next_states.shape, next_states[0].shape, next_states))
@@ -104,8 +113,11 @@ def train(opt):
         moves += 1
         print("Action: {} Reward: {}".format(action, reward))
 
-        if torch.cuda.is_available():
+        if torch.backends.mps.is_available():
+            next_state = next_state.to(torch.device("mps"))
+        elif torch.cuda.is_available():
             next_state = next_state.cuda()
+            
         replay_memory.append([state, reward, score, next_state, done]) # determine sequence of when we calculate rewards. may need to wait for balls to start moving for accurate reward but this costs time
         if done:
             final_score = game.score
@@ -115,8 +127,12 @@ def train(opt):
             # final_cleared_lines = env.cleared_lines
             # state = env.reset()
             state = game.restartGame()
-            if torch.cuda.is_available():
+            
+            if torch.backends.mps.is_available():
+                state = state.to(torch.device("mps"))
+            elif torch.cuda.is_available():
                 state = state.cuda()
+
         else:
             # print("NOT DONE")
             state = next_state
@@ -143,11 +159,15 @@ def train(opt):
         next_state_batch =  torch.cat(tuple(state for state in next_state_batch))
 
         state_batch = torch.stack(state_batch)
-
-        if torch.cuda.is_available():
-            # print("State batch [12] size: {}, [5] size: {}".format(len(state_batch[12]), len(state_batch[5])))
-            # state_batch = torch.from_numpy(np.array([t.cuda() for t in state_batch]))
+        
+        if torch.backends.mps.is_available():
+            state_batch = state_batch.to(torch.device("mps"))
+            reward_batch = reward_batch.to(torch.device("mps"))
+            next_state_batch = next_state_batch.to(torch.device("mps"))
             
+        elif torch.cuda.is_available():
+            print("State batch [12] size: {}, [5] size: {}".format(len(state_batch[12]), len(state_batch[5])))
+            # state_batch = torch.from_numpy(np.array([t.cuda() for t in state_batch]))
             state_batch = state_batch.cuda()
             reward_batch = reward_batch.cuda()
             next_state_batch = next_state_batch.cuda()
@@ -195,4 +215,9 @@ def train(opt):
 
 if __name__ == "__main__":
     opt = get_args()
+    opt.gamma = np.float32(opt.gamma)
+    opt.lr = np.float32(opt.lr)
+    opt.initial_epsilon = np.float32(opt.initial_epsilon)
+    opt.final_epsilon = np.float32(opt.final_epsilon)
+    
     train(opt)
