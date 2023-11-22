@@ -99,19 +99,22 @@ def train(opt):
             # print("next_states len {}, len [0]: {}, next_states: {}".format(next_states.shape, next_states[0].shape, next_states))
             predictions = model(next_states)[:, 0] #picks out just array index 0
         model.train()
+        rand = ""
         if random_action:
             index = randint(0, len(next_steps) - 1)
-            print("Random action: {}".format(index))
+            # print("Random action: {}".format(index))
+            rand = "RANDOM"
         else:
             index = torch.argmax(predictions).item()
-            print("Intentional action: {}".format(index))
+            # print("Intentional action: {}".format(index))
+            rand = "INTENTIONAL"
 
         next_state = next_states[index, :]
         action = next_actions[index]
 
         reward, done, score = game.playStep(action)
         moves += 1
-        print("Action: {} Reward: {}".format(action, reward))
+        print("{} Action: {} Reward: {}".format(rand, action, reward))
 
         if torch.backends.mps.is_available():
             next_state = next_state.to(torch.device("mps"))

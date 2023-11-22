@@ -22,25 +22,16 @@ class SuikaGame:
     def setupBrowser(self):
         # print("setup browser")
         options = Options()
-        options.page_load_strategy = "eager"
-        options.add_extension("./uBlock-Origin.crx")
-        # options.add_argument('--headless')
-        # options.add_argument('--disable-gpu')
-        # caps = DesiredCapabilities().CHROME
-        # caps["pageLoadStrategy"] = "eager"
-        self.browser = webdriver.Chrome(options=options)
-        time.sleep(5)
-        self.browser.get('https://suikagame.io')
-        print("loading site")
-        self.browser.switch_to.frame("iframehtml5")
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        self.browser = webdriver.Chrome()
+        self.browser.get('https://suika.gg')
+        # time.sleep(1.5)
         # self.startButton = self.browser.find_element(By.CLASS_NAME, "title-game-playing")
-        self.startButton = self.waitForElement(self.browser, By.CLASS_NAME, "title-game-playing")
-        print("start button: {}".format(self.startButton.text))
-        self.startButton.click()
-        print("clicked start")
-        time.sleep(5)
-        self.browser.switch_to.frame("iframehtml5")
-        self.gameWindow = self.browser.find_element(By.CLASS_NAME, "game-area")
+        # self.startButton.click()
+        time.sleep(2)
+        # self.browser.switch_to.frame("iframehtml5")
+        self.gameWindow = self.browser.find_element(By.ID, "Cocos2dGameContainer")
         self.action = ActionChains(self.browser)
         self.previous_score = 0
         time.sleep(2) # give game time to initialize change from 5 -> 2
